@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  /* KIRA Cafe Design Variables */
+  --kira-green: #2D5A3D;
+  --kira-green-light: #E8F0EA;
+  --kira-cream: #FAF9F6;
+  --kira-dark: #1A1A1A;
+  --kira-text: #1A1A1A;
+  --kira-text-secondary: #666666;
+  --kira-text-muted: #888888;
+  --kira-border: #E0E0E0;
+  --kira-border-light: #CCCCCC;
+  --kira-white: #FFFFFF;
+  --kira-footer-bg: #1A1A1A;
+  --kira-footer-divider: #333333;
+}
+
+@layer base {
+  html, body {
+    height: 100%;
+  }
+
+  .font-outfit {
+    font-family: "Outfit", sans-serif;
+  }
+}
+
+body {
+  background: var(--kira-cream);
+  color: var(--kira-text);
+}
