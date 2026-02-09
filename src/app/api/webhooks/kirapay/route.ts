@@ -31,31 +31,24 @@ const orderStore = global.orderStore;
 function verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
     if (!secret) {
         console.warn("KIRAPAY_WEBHOOK_SECRET not configured - skipping signature verification");
-        return true; // Allow in development without secret
+        return true;
     }
 
-    const expectedSignature = crypto
-        .createHmac("sha256", secret)
-        .update(payload)
-        .digest("hex");
+    // Handle format: sha256=<base64_hash>
+    const receivedHash = signature.startsWith("sha256=") ? signature.substring(7) : signature;
 
-    // Use string comparison if timingsafe comparison is not possible due to length mismatch
-    // But first, let's log the mismatch for debugging
-    if (signature.length !== expectedSignature.length) {
-        console.error(`Signature length mismatch: expected ${expectedSignature.length}, got ${signature.length}`);
-        console.error(`Received signature: "${signature}"`); // DEBUG: Inspect format
-        return false;
-    }
+    // Generate expected hashes
+    const expectedBase64 = crypto.createHmac("sha256", secret).update(payload).digest("base64");
+    const expectedHex = crypto.createHmac("sha256", secret).update(payload).digest("hex");
 
-    try {
-        return crypto.timingSafeEqual(
-            Buffer.from(signature),
-            Buffer.from(expectedSignature)
-        );
-    } catch (e) {
-        console.error("Error during timingSafeEqual:", e);
-        return false;
-    }
+    // Try matches
+    if (receivedHash === expectedBase64 || receivedHash === expectedHex) return true;
+
+    console.error(`Signature mismatch. Received: "${receivedHash}"`);
+    console.error(`Expected (Base64): "${expectedBase64}"`);
+    console.error(`Expected (Hex): "${expectedHex}"`);
+
+    return false;
 }
 
 export async function POST(request: NextRequest) {
