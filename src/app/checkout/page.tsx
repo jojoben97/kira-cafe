@@ -1,10 +1,10 @@
 "use client";
 
 import { useCart } from "@/context/CartContext";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Clock, Lock, Check, Coffee, ShoppingBag, MapPin, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, Clock, Lock, Check, Coffee, ShoppingBag, MapPin } from "lucide-react";
 import Footer from "@/components/Footer";
 
 export default function CheckoutPage() {
@@ -15,42 +15,6 @@ export default function CheckoutPage() {
     const [error, setError] = useState("");
     const [waitingForPayment, setWaitingForPayment] = useState(false);
     const [currentOrderId, setCurrentOrderId] = useState("");
-    const [paymentStatus, setPaymentStatus] = useState<"pending" | "completed" | "failed" | null>(null);
-    const [pollingCount, setPollingCount] = useState(0);
-
-    // Poll for payment status
-    const checkPaymentStatus = useCallback(async () => {
-        if (!currentOrderId) return;
-
-        try {
-            const response = await fetch(`/api/webhooks/kirapay?orderId=${encodeURIComponent(currentOrderId)}`);
-            const data = await response.json();
-
-            if (data.status === "completed") {
-                setPaymentStatus("completed");
-                clearCart();
-                window.location.href = "/payment/success";
-            } else if (data.status === "failed") {
-                setPaymentStatus("failed");
-                setError("Payment failed. Please try again.");
-                setWaitingForPayment(false);
-            }
-        } catch (err) {
-            console.error("Error checking payment status:", err);
-        }
-    }, [currentOrderId, clearCart]);
-
-    // Polling effect
-    useEffect(() => {
-        if (!waitingForPayment || !currentOrderId) return;
-
-        const interval = setInterval(() => {
-            checkPaymentStatus();
-            setPollingCount(prev => prev + 1);
-        }, 3000); // Poll every 3 seconds
-
-        return () => clearInterval(interval);
-    }, [waitingForPayment, currentOrderId, checkPaymentStatus]);
 
     const handlePayment = async () => {
         if (!customerName.trim()) {
@@ -101,7 +65,6 @@ export default function CheckoutPage() {
                 setCurrentOrderId(newOrder.id);
                 setLoading(false);
                 setWaitingForPayment(true);
-                setPollingCount(0);
             } else {
                 throw new Error("No payment URL received");
             }
@@ -121,27 +84,24 @@ export default function CheckoutPage() {
             <main className="min-h-screen flex flex-col items-center justify-center bg-[var(--kira-cream)] p-4 text-center">
                 <div className="bg-white p-8 rounded-3xl shadow-lg max-w-sm w-full flex flex-col items-center gap-4">
                     <Loader2 className="w-12 h-12 text-[var(--kira-green)] animate-spin" />
-                    <h2 className="text-xl font-bold text-gray-900">Waiting for Payment</h2>
+                    <h2 className="text-xl font-bold text-gray-900">Complete Your Payment</h2>
                     <p className="text-sm text-gray-500">
-                        Complete your payment in the KiraPay tab. We'll automatically detect when it's done.
+                        Complete your payment in the KiraPay tab. You'll be redirected back here when done.
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <RefreshCw className="w-3 h-3 animate-spin" />
-                        <span>Checking payment status... ({pollingCount})</span>
-                    </div>
+                    <p className="text-xs text-gray-400">
+                        Order ID: {currentOrderId}
+                    </p>
                     <div className="flex flex-col gap-3 w-full mt-4">
-                        <button
-                            onClick={checkPaymentStatus}
+                        <Link
+                            href="/payment/success"
                             className="w-full bg-[var(--kira-green)] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                         >
-                            <RefreshCw className="w-4 h-4" />
-                            Check Payment Status
-                        </button>
+                            I've Completed Payment
+                        </Link>
                         <button
                             onClick={() => {
                                 setWaitingForPayment(false);
                                 setCurrentOrderId("");
-                                setPollingCount(0);
                             }}
                             className="w-full text-gray-400 text-sm font-medium"
                         >
