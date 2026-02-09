@@ -39,12 +39,20 @@ function verifyWebhookSignature(payload: string, signature: string, secret: stri
         .update(payload)
         .digest("hex");
 
+    // Use string comparison if timingsafe comparison is not possible due to length mismatch
+    // But first, let's log the mismatch for debugging
+    if (signature.length !== expectedSignature.length) {
+        console.error(`Signature length mismatch: expected ${expectedSignature.length}, got ${signature.length}`);
+        return false;
+    }
+
     try {
         return crypto.timingSafeEqual(
             Buffer.from(signature),
             Buffer.from(expectedSignature)
         );
-    } catch {
+    } catch (e) {
+        console.error("Error during timingSafeEqual:", e);
         return false;
     }
 }
@@ -52,7 +60,7 @@ function verifyWebhookSignature(payload: string, signature: string, secret: stri
 export async function POST(request: NextRequest) {
     try {
         const payload = await request.text();
-        const signature = request.headers.get("x-kirapay-signature") || "";
+        const signature = (request.headers.get("x-kirapay-signature") || "").trim();
         const timestamp = request.headers.get("x-kirapay-timestamp") || "";
 
         console.log("Received webhook:", { timestamp, signaturePresent: !!signature });
