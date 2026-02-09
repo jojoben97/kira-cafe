@@ -10,6 +10,7 @@ import Footer from "@/components/Footer";
 export default function CheckoutPage() {
     const { items, cartTotal, clearCart, cartCount, setIsCartOpen } = useCart();
     const [customerName, setCustomerName] = useState("");
+    const [receiverAddress, setReceiverAddress] = useState("");
     const [phoneNumber, setPhoneNumber] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -71,6 +72,10 @@ export default function CheckoutPage() {
             setError("Please enter your name for the order");
             return;
         }
+        if (!receiverAddress.trim()) {
+            setError("Please enter a receiver address");
+            return;
+        }
         if (total < 5) {
             setError("Minimum order amount is $5.00");
             return;
@@ -86,6 +91,7 @@ export default function CheckoutPage() {
                     items,
                     totalAmount: cartTotal,
                     customerName,
+                    receiverAddress,
                 }),
             });
 
@@ -270,6 +276,16 @@ export default function CheckoutPage() {
                         className="w-full p-4 rounded-2xl bg-white border-none focus:ring-2 focus:ring-[var(--kira-green)]/20 outline-none transition-all placeholder:text-gray-400 text-sm"
                     />
                 </section>
+                <section>
+                    <h2 className="text-base font-semibold text-gray-900 mb-3">Receiver Address</h2>
+                    <input
+                        type="text"
+                        value={receiverAddress}
+                        onChange={(e) => setReceiverAddress(e.target.value)}
+                        placeholder="Enter wallet address"
+                        className="w-full p-4 rounded-2xl bg-white border-none focus:ring-2 focus:ring-[var(--kira-green)]/20 outline-none transition-all placeholder:text-gray-400 text-sm"
+                    />
+                </section>
 
                 {/* Payment Method */}
                 <section>
@@ -316,6 +332,16 @@ export default function CheckoutPage() {
                                     value={customerName}
                                     onChange={(e) => setCustomerName(e.target.value)}
                                     placeholder="John Doe"
+                                    className="w-full p-4 rounded-xl bg-white border border-[#E5E5E5] focus:border-[var(--kira-green)] focus:ring-2 focus:ring-[var(--kira-green)]/10 outline-none transition-all placeholder:text-gray-400 text-[15px]"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[14px] font-medium text-[var(--kira-text-secondary)]">Receiver Address</label>
+                                <input
+                                    type="text"
+                                    value={receiverAddress}
+                                    onChange={(e) => setReceiverAddress(e.target.value)}
+                                    placeholder="Wallet address"
                                     className="w-full p-4 rounded-xl bg-white border border-[#E5E5E5] focus:border-[var(--kira-green)] focus:ring-2 focus:ring-[var(--kira-green)]/10 outline-none transition-all placeholder:text-gray-400 text-[15px]"
                                 />
                             </div>

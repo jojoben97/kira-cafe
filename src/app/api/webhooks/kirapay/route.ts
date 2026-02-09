@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
 const WEBHOOK_SECRET = process.env.KIRAPAY_WEBHOOK_SECRET!;
+const SIGNATURE_HEADER = "x-kirapay-signature";
+const TIMESTAMP_HEADER = "x-kirapay-timestamp";
+const TIMESTAMP_TOLERANCE_SECONDS = 5 * 60;
 
 // In-memory store for demo purposes
 // In production, use a database like MongoDB, PostgreSQL, Redis, or Vercel KV.
@@ -30,60 +33,64 @@ const orderStore = global.orderStore;
 // Verify webhook signature
 function verifyWebhookSignature(payload: string, signature: string, secret: string, timestamp?: string): boolean {
     if (!secret) {
-        console.warn("KIRAPAY_WEBHOOK_SECRET not configured - skipping signature verification");
-        return true;
+        console.error("KIRAPAY_WEBHOOK_SECRET not configured");
+        return false;
+    }
+    if (!signature) {
+        console.error("Missing webhook signature");
+        return false;
     }
 
-    // Handle format: sha256=<base64_hash>
-    const receivedHash = signature.startsWith("sha256=") ? signature.substring(7) : signature;
+    // Accept header format: "sha256=<base64>"
+    const received = signature.startsWith("sha256=") ? signature.slice(7) : signature;
 
-    // DEBUG INFO
-    console.log("--- Signature Debug ---");
-    console.log(`Secret length: ${secret.length}, Starts with: ${secret.substring(0, 4)}... Ends with: ...${secret.substring(secret.length - 4)}`);
-    console.log(`Payload preview: ${payload.substring(0, 50)}...`);
-    console.log(`Received Hash: ${receivedHash}`);
-
-    // Test combinations
-    const combinations = [
-        { name: "Raw Payload", data: payload },
-        { name: "Timestamp + Payload", data: (timestamp || "") + payload },
-        { name: "Timestamp + '.' + Payload", data: (timestamp || "") + "." + payload },
-        { name: "Payload + Timestamp", data: payload + (timestamp || "") }
-    ];
-
-    for (const combo of combinations) {
-        const b64 = crypto.createHmac("sha256", secret).update(combo.data).digest("base64");
-        const hex = crypto.createHmac("sha256", secret).update(combo.data).digest("hex");
-
-        console.log(`Combo [${combo.name}]: Base64=${b64}, Hex=${hex}`);
-
-        if (receivedHash === b64 || receivedHash === hex) {
-            console.log(`SUCCESS: Match found with [${combo.name}]`);
-            return true;
+    // Optional timestamp replay protection
+    if (timestamp) {
+        const tsRaw = Number(timestamp);
+        if (!Number.isFinite(tsRaw)) {
+            console.error("Invalid webhook timestamp");
+            return false;
+        }
+        const tsSeconds = tsRaw > 1e12 ? Math.floor(tsRaw / 1000) : Math.floor(tsRaw);
+        const now = Math.floor(Date.now() / 1000);
+        const delta = Math.abs(now - tsSeconds);
+        if (delta > TIMESTAMP_TOLERANCE_SECONDS) {
+            console.error("Webhook timestamp outside tolerance");
+            return false;
         }
     }
 
-    console.error("FAILED: No signature combination matched!");
-    return false;
+    // Canonical: HMAC_SHA256(secret, raw_payload) -> base64
+    const expected = crypto.createHmac("sha256", secret).update(payload).digest("base64");
+
+    // Timing-safe compare
+    const receivedBuf = Buffer.from(received);
+    const expectedBuf = Buffer.from(expected);
+    if (receivedBuf.length !== expectedBuf.length) {
+        return false;
+    }
+    return crypto.timingSafeEqual(receivedBuf, expectedBuf);
 }
 
 export async function POST(request: NextRequest) {
     try {
         const payload = await request.text();
-        const signature = (request.headers.get("x-kirapay-signature") || "").trim();
-        const timestamp = (request.headers.get("x-kirapay-timestamp") || "").trim();
+        const signature = (request.headers.get(SIGNATURE_HEADER) || "").trim();
+        const timestamp = (request.headers.get(TIMESTAMP_HEADER) || "").trim();
 
-        console.log("Received webhook:", { timestamp, signaturePresent: !!signature });
+        if (!WEBHOOK_SECRET) {
+            return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
+        }
 
-        // Verify signature (skip if secret not configured for development)
-        if (WEBHOOK_SECRET && !verifyWebhookSignature(payload, signature, WEBHOOK_SECRET, timestamp)) {
+        if (!verifyWebhookSignature(payload, signature, WEBHOOK_SECRET, timestamp)) {
             return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
         }
 
         const event = JSON.parse(payload);
         console.log("Webhook event:", JSON.stringify(event, null, 2));
 
-        const { event: eventType, data } = event;
+        const eventType: string | undefined = event.type || event.event;
+        const data = event.data || {};
 
         // Extract orderId from customOrderId (format: Name_ORD-xxx_date_time)
         // The orderId is the part that starts with "ORD-"
@@ -93,8 +100,14 @@ export async function POST(request: NextRequest) {
             return match ? match[1] : customOrderId;
         };
 
-        const orderId = extractOrderId(data.customOrderId);
-        console.log(`Extracted orderId: ${orderId} from customOrderId: ${data.customOrderId}`);
+        const customOrderId =
+            data.customOrderId ||
+            data.orderId ||
+            data.link?.customOrderId ||
+            data.linkCode ||
+            "";
+        const orderId = extractOrderId(customOrderId);
+        console.log(`Extracted orderId: ${orderId} from customOrderId: ${customOrderId}`);
 
         switch (eventType) {
             case "transaction.created":
@@ -160,7 +173,7 @@ export async function POST(request: NextRequest) {
                 break;
 
             default:
-                console.log(`Unknown event type: ${eventType}`);
+                console.log(`Unknown event type: ${eventType || "undefined"}`);
         }
 
         return NextResponse.json({ received: true, event: eventType });
