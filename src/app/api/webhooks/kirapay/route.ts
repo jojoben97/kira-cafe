@@ -1,34 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { findPendingOrderIdByAmount, getLatestPendingOrderId, getOrderStore } from "@/lib/orderStore";
 
 const WEBHOOK_SECRET = process.env.KIRAPAY_WEBHOOK_SECRET!;
 const SIGNATURE_HEADER = "x-kirapay-signature";
 const TIMESTAMP_HEADER = "x-kirapay-timestamp";
 const TIMESTAMP_TOLERANCE_SECONDS = 5 * 60;
-
-// In-memory store for demo purposes
-// In production, use a database like MongoDB, PostgreSQL, Redis, or Vercel KV.
-// Note: global/in-memory storage will not work reliably on Vercel (serverless).
-declare global {
-    var orderStore: Map<string, OrderData> | undefined;
-}
-
-interface OrderData {
-    id: string;
-    customOrderId: string;
-    status: "pending" | "completed" | "failed" | "refunded";
-    amount: string;
-    transactionId?: string;
-    paidAt?: string;
-    customer?: string;
-}
-
-// Initialize global store
-if (!global.orderStore) {
-    global.orderStore = new Map<string, OrderData>();
-}
-
-const orderStore = global.orderStore;
 
 // Verify webhook signature
 function verifyWebhookSignature(payload: string, signature: string, secret: string, timestamp?: string): boolean {
@@ -60,8 +37,10 @@ function verifyWebhookSignature(payload: string, signature: string, secret: stri
         }
     }
 
-    // Canonical: HMAC_SHA256(secret, raw_payload) -> base64
-    const expected = crypto.createHmac("sha256", secret).update(payload).digest("base64");
+    // Canonical: if timestamp is provided, use "timestamp.payload"
+    // Otherwise fallback to raw payload.
+    const message = timestamp ? `${timestamp}.${payload}` : payload;
+    const expected = crypto.createHmac("sha256", secret).update(message).digest("base64");
 
     // Timing-safe compare
     const receivedBuf = Buffer.from(received);
@@ -77,6 +56,8 @@ export async function POST(request: NextRequest) {
         const payload = await request.text();
         const signature = (request.headers.get(SIGNATURE_HEADER) || "").trim();
         const timestamp = (request.headers.get(TIMESTAMP_HEADER) || "").trim();
+
+        console.log(WEBHOOK_SECRET)
 
         if (!WEBHOOK_SECRET) {
             return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
@@ -106,7 +87,20 @@ export async function POST(request: NextRequest) {
             data.link?.customOrderId ||
             data.linkCode ||
             "";
-        const orderId = extractOrderId(customOrderId);
+        let orderId = extractOrderId(customOrderId);
+        const orderStore = getOrderStore();
+        if (!orderId) {
+            const amount = data.amount != null ? String(data.amount) : "";
+            if (amount) {
+                const matched = findPendingOrderIdByAmount(amount);
+                if (matched) {
+                    orderId = matched;
+                }
+            }
+        }
+        if (!orderId) {
+            orderId = getLatestPendingOrderId() || "";
+        }
         console.log(`Extracted orderId: ${orderId} from customOrderId: ${customOrderId}`);
 
         switch (eventType) {
@@ -118,7 +112,7 @@ export async function POST(request: NextRequest) {
                         id: data.transactionId,
                         customOrderId: data.customOrderId,
                         status: "pending",
-                        amount: data.amount,
+                        amount: String(data.amount),
                         transactionId: data.transactionId,
                     });
                 }
@@ -134,7 +128,7 @@ export async function POST(request: NextRequest) {
                         id: data.transactionId,
                         customOrderId: data.customOrderId,
                         status: "completed",
-                        amount: data.amount || data.settlementAmount,
+                        amount: String(data.amount || data.settlementAmount),
                         transactionId: data.transactionId,
                         paidAt: new Date().toISOString(),
                     });
@@ -151,7 +145,7 @@ export async function POST(request: NextRequest) {
                         id: data.transactionId,
                         customOrderId: data.customOrderId,
                         status: "failed",
-                        amount: data.amount,
+                        amount: String(data.amount),
                         transactionId: data.transactionId,
                     });
                 }
@@ -166,7 +160,7 @@ export async function POST(request: NextRequest) {
                         id: data.transactionId,
                         customOrderId: data.customOrderId,
                         status: "refunded",
-                        amount: data.amount,
+                        amount: String(data.amount),
                         transactionId: data.transactionId,
                     });
                 }
@@ -196,6 +190,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "orderId required" }, { status: 400 });
     }
 
+    const orderStore = getOrderStore();
     const order = orderStore.get(orderId);
 
     if (!order) {

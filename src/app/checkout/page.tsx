@@ -18,6 +18,7 @@ export default function CheckoutPage() {
     const [currentOrderId, setCurrentOrderId] = useState("");
     const [verifying, setVerifying] = useState(false);
     const [pollingCount, setPollingCount] = useState(0);
+    const [paymentComplete, setPaymentComplete] = useState(false);
 
     // Poll for payment status
     useEffect(() => {
@@ -30,7 +31,7 @@ export default function CheckoutPage() {
                     if (response.ok) {
                         const data = await response.json();
                         if (data.status === "completed") {
-                            window.location.href = "/payment/success";
+                            setPaymentComplete(true);
                         }
                     }
                 } catch (err) {
@@ -54,7 +55,7 @@ export default function CheckoutPage() {
             const data = await response.json();
 
             if (data.status === "completed") {
-                window.location.href = "/payment/success";
+                setPaymentComplete(true);
             } else if (data.status === "pending") {
                 setError("Payment is still pending. Please complete the transaction in the other tab.");
             } else {
@@ -139,39 +140,66 @@ export default function CheckoutPage() {
         return (
             <main className="min-h-screen flex flex-col items-center justify-center bg-[var(--kira-cream)] p-4 text-center">
                 <div className="bg-white p-8 rounded-3xl shadow-lg max-w-sm w-full flex flex-col items-center gap-4">
-                    <Loader2 className="w-12 h-12 text-[var(--kira-green)] animate-spin" />
-                    <h2 className="text-xl font-bold text-gray-900">Complete Your Payment</h2>
-                    <p className="text-sm text-gray-500">
-                        Complete your payment in the KiraPay tab. You'll be redirected back here when done.
-                    </p>
-                    <p className="text-xs text-gray-400">
-                        Order ID: {currentOrderId}
-                    </p>
-                    <div className="flex flex-col gap-3 w-full mt-4">
-                        <button
-                            disabled={verifying}
-                            onClick={checkPaymentStatus}
-                            className="w-full bg-[var(--kira-green)] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
-                        >
-                            {verifying ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Verifying...
-                                </>
-                            ) : (
-                                "I've Completed Payment"
-                            )}
-                        </button>
-                        <button
-                            onClick={() => {
-                                setWaitingForPayment(false);
-                                setCurrentOrderId("");
-                            }}
-                            className="w-full text-gray-400 text-sm font-medium"
-                        >
-                            Cancel
-                        </button>
-                    </div>
+                    {paymentComplete ? (
+                        <>
+                            <div className="w-12 h-12 rounded-full bg-[var(--kira-green)]/10 flex items-center justify-center">
+                                <Check className="w-6 h-6 text-[var(--kira-green)]" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-900">Order Placed</h2>
+                            <p className="text-sm text-gray-500">
+                                Thank you! Your payment was successful and your order has been placed.
+                            </p>
+                            <p className="text-xs text-gray-400">
+                                Order ID: {currentOrderId}
+                            </p>
+                            <button
+                                onClick={() => {
+                                    setWaitingForPayment(false);
+                                    setCurrentOrderId("");
+                                    setPaymentComplete(false);
+                                }}
+                                className="w-full bg-[var(--kira-green)] text-white py-3 rounded-xl font-semibold"
+                            >
+                                Back to Menu
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <Loader2 className="w-12 h-12 text-[var(--kira-green)] animate-spin" />
+                            <h2 className="text-xl font-bold text-gray-900">Complete Your Payment</h2>
+                            <p className="text-sm text-gray-500">
+                                Complete your payment in the KiraPay tab. We'll update this screen once it's confirmed.
+                            </p>
+                            <p className="text-xs text-gray-400">
+                                Order ID: {currentOrderId}
+                            </p>
+                            <div className="flex flex-col gap-3 w-full mt-4">
+                                <button
+                                    disabled={verifying}
+                                    onClick={checkPaymentStatus}
+                                    className="w-full bg-[var(--kira-green)] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {verifying ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Verifying...
+                                        </>
+                                    ) : (
+                                        "I've Completed Payment"
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setWaitingForPayment(false);
+                                        setCurrentOrderId("");
+                                    }}
+                                    className="w-full text-gray-400 text-sm font-medium"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </main>
         );

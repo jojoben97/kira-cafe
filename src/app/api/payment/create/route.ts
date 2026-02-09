@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getOrderStore, setLatestPendingOrderId } from "@/lib/orderStore";
 
 const KIRAPAY_API_URL = process.env.KIRAPAY_API_URL || "https://api.kira-pay.com/api";
 const API_KEY = process.env.KIRAPAY_API_KEY!;
@@ -99,6 +100,16 @@ export async function POST(request: Request) {
             console.error("No payment URL found in response:", data);
             return NextResponse.json({ error: "Invalid response from Payment Gateway" }, { status: 502 });
         }
+
+        const orderStore = getOrderStore();
+        orderStore.set(orderId, {
+            id: orderId,
+            customOrderId: formattedName,
+            status: "pending",
+            amount: String(totalAmount),
+            customer: customerName || "Guest",
+        });
+        setLatestPendingOrderId(orderId);
 
         return NextResponse.json({
             success: true,
