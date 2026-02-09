@@ -10,7 +10,7 @@ import Footer from "@/components/Footer";
 export default function CheckoutPage() {
     const { items, cartTotal, clearCart, cartCount, setIsCartOpen } = useCart();
     const [customerName, setCustomerName] = useState("");
-    const [receiverAddress, setReceiverAddress] = useState("");
+    const [receiverAddress, setReceiverAddress] = useState("0xfA50705d543b43a5c248532647170b672fB340b7");
     const [phoneNumber, setPhoneNumber] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -304,16 +304,7 @@ export default function CheckoutPage() {
                         className="w-full p-4 rounded-2xl bg-white border-none focus:ring-2 focus:ring-[var(--kira-green)]/20 outline-none transition-all placeholder:text-gray-400 text-sm"
                     />
                 </section>
-                <section>
-                    <h2 className="text-base font-semibold text-gray-900 mb-3">Receiver Address</h2>
-                    <input
-                        type="text"
-                        value={receiverAddress}
-                        onChange={(e) => setReceiverAddress(e.target.value)}
-                        placeholder="Enter wallet address"
-                        className="w-full p-4 rounded-2xl bg-white border-none focus:ring-2 focus:ring-[var(--kira-green)]/20 outline-none transition-all placeholder:text-gray-400 text-sm"
-                    />
-                </section>
+
 
                 {/* Payment Method */}
                 <section>
@@ -363,16 +354,7 @@ export default function CheckoutPage() {
                                     className="w-full p-4 rounded-xl bg-white border border-[#E5E5E5] focus:border-[var(--kira-green)] focus:ring-2 focus:ring-[var(--kira-green)]/10 outline-none transition-all placeholder:text-gray-400 text-[15px]"
                                 />
                             </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[14px] font-medium text-[var(--kira-text-secondary)]">Receiver Address</label>
-                                <input
-                                    type="text"
-                                    value={receiverAddress}
-                                    onChange={(e) => setReceiverAddress(e.target.value)}
-                                    placeholder="Wallet address"
-                                    className="w-full p-4 rounded-xl bg-white border border-[#E5E5E5] focus:border-[var(--kira-green)] focus:ring-2 focus:ring-[var(--kira-green)]/10 outline-none transition-all placeholder:text-gray-400 text-[15px]"
-                                />
-                            </div>
+
                             <div className="flex flex-col gap-2">
                                 <label className="text-[14px] font-medium text-[var(--kira-text-secondary)]">Phone Number (Optional)</label>
                                 <input
