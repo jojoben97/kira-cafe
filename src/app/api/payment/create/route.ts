@@ -45,6 +45,14 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { items, customerName, totalAmount } = body;
 
+        // Check minimum order amount (KiraPay requires at least $5)
+        if (totalAmount < 5) {
+            return NextResponse.json(
+                { error: "Minimum order amount is $5.00" },
+                { status: 400 }
+            );
+        }
+
         // Create a unique order ID
         const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -70,7 +78,11 @@ export async function POST(request: Request) {
             name: paymentName,
             customOrderId: formattedName,
             redirectUrl: PAYMENT_SUCCESS_URL,
-            type: "single_use"
+            type: "single_use",
+            tokenOut: {
+                chainId: "8453",
+                address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+            }
         };
 
         console.log("Initiating payment with payload:", payload);

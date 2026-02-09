@@ -13,8 +13,11 @@ interface DrinkModalProps {
 }
 
 // Items that don't need milk customization
-const noMilkCategories = ["others"];
+const noMilkCategories = ["others", "water", "pastries", "smoothies"];
 const noMilkItems = ["Sky Juice", "Water"];
+
+// Items that don't need size customization
+const noSizeCategories = ["pastries", "water"];
 
 // Cup icon component for size selection
 function CupIcon({ size, isSelected }: { size: "small" | "medium" | "large"; isSelected: boolean }) {
@@ -37,6 +40,9 @@ export default function DrinkModal({ item, isOpen, onClose }: DrinkModalProps) {
     // Check if this item should show milk options
     const showMilkOptions = !noMilkCategories.includes(item.category) && !noMilkItems.includes(item.name);
 
+    // Check if this item should show size options
+    const showSizeOptions = !noSizeCategories.includes(item.category);
+
     const handleAddToCart = () => {
         const options: DrinkOptions = {
             size,
@@ -50,8 +56,10 @@ export default function DrinkModal({ item, isOpen, onClose }: DrinkModalProps) {
 
     const calculateUnitPrice = () => {
         let price = item.price;
-        if (size === 'Large') price += 1.0;
-        if (size === 'Small') price -= 0.5;
+        if (showSizeOptions) {
+            if (size === 'Large') price += 1.0;
+            if (size === 'Small') price -= 0.5;
+        }
         if (showMilkOptions && milk && milk !== 'Dairy') price += 0.5;
         return price;
     };
@@ -88,27 +96,29 @@ export default function DrinkModal({ item, isOpen, onClose }: DrinkModalProps) {
                     </span>
                 </div>
 
-                {/* Size Selection */}
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Size</h3>
-                    <div className="flex gap-3">
-                        {(["Small", "Medium", "Large"] as DrinkSize[]).map((s) => (
-                            <button
-                                key={s}
-                                onClick={() => setSize(s)}
-                                className={`flex-1 flex flex-col items-center gap-2 py-3 rounded-xl border-2 transition-all ${size === s
-                                    ? "border-[var(--kira-green)] bg-[#E8F5E9]"
-                                    : "border-gray-200 bg-white"
-                                    }`}
-                            >
-                                <Coffee className={`w-5 h-5 ${size === s ? "text-[var(--kira-green)]" : "text-gray-400"}`} />
-                                <span className={`text-sm font-medium ${size === s ? "text-[var(--kira-green)]" : "text-gray-600"}`}>
-                                    {s}
-                                </span>
-                            </button>
-                        ))}
+                {/* Size Selection - Only show for items with size options */}
+                {showSizeOptions && (
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Size</h3>
+                        <div className="flex gap-3">
+                            {(["Small", "Medium", "Large"] as DrinkSize[]).map((s) => (
+                                <button
+                                    key={s}
+                                    onClick={() => setSize(s)}
+                                    className={`flex-1 flex flex-col items-center gap-2 py-3 rounded-xl border-2 transition-all ${size === s
+                                        ? "border-[var(--kira-green)] bg-[#E8F5E9]"
+                                        : "border-gray-200 bg-white"
+                                        }`}
+                                >
+                                    <Coffee className={`w-5 h-5 ${size === s ? "text-[var(--kira-green)]" : "text-gray-400"}`} />
+                                    <span className={`text-sm font-medium ${size === s ? "text-[var(--kira-green)]" : "text-gray-600"}`}>
+                                        {s}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Milk Selection - Only show for drinks that have milk */}
                 {showMilkOptions && (

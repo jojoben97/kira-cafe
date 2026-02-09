@@ -1,4 +1,4 @@
-export type CategoryId = 'coffee' | 'tea' | 'smoothies' | 'pastries' | 'others';
+export type CategoryId = 'coffee' | 'tea' | 'smoothies' | 'pastries' | 'water' | 'others';
 
 export interface MenuItem {
   id: string;
