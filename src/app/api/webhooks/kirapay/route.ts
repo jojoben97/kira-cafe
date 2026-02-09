@@ -28,7 +28,7 @@ if (!global.orderStore) {
 const orderStore = global.orderStore;
 
 // Verify webhook signature
-function verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
+function verifyWebhookSignature(payload: string, signature: string, secret: string, timestamp?: string): boolean {
     if (!secret) {
         console.warn("KIRAPAY_WEBHOOK_SECRET not configured - skipping signature verification");
         return true;
@@ -37,17 +37,33 @@ function verifyWebhookSignature(payload: string, signature: string, secret: stri
     // Handle format: sha256=<base64_hash>
     const receivedHash = signature.startsWith("sha256=") ? signature.substring(7) : signature;
 
-    // Generate expected hashes
-    const expectedBase64 = crypto.createHmac("sha256", secret).update(payload).digest("base64");
-    const expectedHex = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+    // DEBUG INFO
+    console.log("--- Signature Debug ---");
+    console.log(`Secret length: ${secret.length}, Starts with: ${secret.substring(0, 4)}... Ends with: ...${secret.substring(secret.length - 4)}`);
+    console.log(`Payload preview: ${payload.substring(0, 50)}...`);
+    console.log(`Received Hash: ${receivedHash}`);
 
-    // Try matches
-    if (receivedHash === expectedBase64 || receivedHash === expectedHex) return true;
+    // Test combinations
+    const combinations = [
+        { name: "Raw Payload", data: payload },
+        { name: "Timestamp + Payload", data: (timestamp || "") + payload },
+        { name: "Timestamp + '.' + Payload", data: (timestamp || "") + "." + payload },
+        { name: "Payload + Timestamp", data: payload + (timestamp || "") }
+    ];
 
-    console.error(`Signature mismatch. Received: "${receivedHash}"`);
-    console.error(`Expected (Base64): "${expectedBase64}"`);
-    console.error(`Expected (Hex): "${expectedHex}"`);
+    for (const combo of combinations) {
+        const b64 = crypto.createHmac("sha256", secret).update(combo.data).digest("base64");
+        const hex = crypto.createHmac("sha256", secret).update(combo.data).digest("hex");
 
+        console.log(`Combo [${combo.name}]: Base64=${b64}, Hex=${hex}`);
+
+        if (receivedHash === b64 || receivedHash === hex) {
+            console.log(`SUCCESS: Match found with [${combo.name}]`);
+            return true;
+        }
+    }
+
+    console.error("FAILED: No signature combination matched!");
     return false;
 }
 
@@ -55,13 +71,12 @@ export async function POST(request: NextRequest) {
     try {
         const payload = await request.text();
         const signature = (request.headers.get("x-kirapay-signature") || "").trim();
-        const timestamp = request.headers.get("x-kirapay-timestamp") || "";
+        const timestamp = (request.headers.get("x-kirapay-timestamp") || "").trim();
 
         console.log("Received webhook:", { timestamp, signaturePresent: !!signature });
 
         // Verify signature (skip if secret not configured for development)
-        if (WEBHOOK_SECRET && !verifyWebhookSignature(payload, signature, WEBHOOK_SECRET)) {
-            console.error("Invalid webhook signature");
+        if (WEBHOOK_SECRET && !verifyWebhookSignature(payload, signature, WEBHOOK_SECRET, timestamp)) {
             return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
         }
 
