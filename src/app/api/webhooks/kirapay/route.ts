@@ -4,7 +4,8 @@ import crypto from "crypto";
 const WEBHOOK_SECRET = process.env.KIRAPAY_WEBHOOK_SECRET!;
 
 // In-memory store for demo purposes
-// In production, use a database like MongoDB, PostgreSQL, Redis, etc.
+// In production, use a database like MongoDB, PostgreSQL, Redis, or Vercel KV.
+// Note: global/in-memory storage will not work reliably on Vercel (serverless).
 declare global {
     var orderStore: Map<string, OrderData> | undefined;
 }

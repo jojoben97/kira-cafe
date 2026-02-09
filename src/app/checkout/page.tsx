@@ -1,7 +1,7 @@
 "use client";
 
 import { useCart } from "@/context/CartContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Clock, Lock, Check, Coffee, ShoppingBag, MapPin } from "lucide-react";
@@ -15,6 +15,56 @@ export default function CheckoutPage() {
     const [error, setError] = useState("");
     const [waitingForPayment, setWaitingForPayment] = useState(false);
     const [currentOrderId, setCurrentOrderId] = useState("");
+    const [verifying, setVerifying] = useState(false);
+    const [pollingCount, setPollingCount] = useState(0);
+
+    // Poll for payment status
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+
+        if (waitingForPayment && currentOrderId) {
+            interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/webhooks/kirapay?orderId=${currentOrderId}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === "completed") {
+                            window.location.href = "/payment/success";
+                        }
+                    }
+                } catch (err) {
+                    console.error("Polling error:", err);
+                }
+            }, 3000); // Poll every 3 seconds
+        }
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [waitingForPayment, currentOrderId]);
+
+    const checkPaymentStatus = async () => {
+        if (!currentOrderId) return;
+        setVerifying(true);
+        setError("");
+
+        try {
+            const response = await fetch(`/api/webhooks/kirapay?orderId=${currentOrderId}`);
+            const data = await response.json();
+
+            if (data.status === "completed") {
+                window.location.href = "/payment/success";
+            } else if (data.status === "pending") {
+                setError("Payment is still pending. Please complete the transaction in the other tab.");
+            } else {
+                setError("Payment status not found yet. Please wait a few moments after completing payment.");
+            }
+        } catch (err) {
+            setError("Failed to verify payment status. Please try again.");
+        } finally {
+            setVerifying(false);
+        }
+    };
 
     const handlePayment = async () => {
         if (!customerName.trim()) {
@@ -92,12 +142,20 @@ export default function CheckoutPage() {
                         Order ID: {currentOrderId}
                     </p>
                     <div className="flex flex-col gap-3 w-full mt-4">
-                        <Link
-                            href="/payment/success"
-                            className="w-full bg-[var(--kira-green)] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                        <button
+                            disabled={verifying}
+                            onClick={checkPaymentStatus}
+                            className="w-full bg-[var(--kira-green)] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                            I've Completed Payment
-                        </Link>
+                            {verifying ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Verifying...
+                                </>
+                            ) : (
+                                "I've Completed Payment"
+                            )}
+                        </button>
                         <button
                             onClick={() => {
                                 setWaitingForPayment(false);
