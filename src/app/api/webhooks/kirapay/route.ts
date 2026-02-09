@@ -43,6 +43,7 @@ function verifyWebhookSignature(payload: string, signature: string, secret: stri
     // But first, let's log the mismatch for debugging
     if (signature.length !== expectedSignature.length) {
         console.error(`Signature length mismatch: expected ${expectedSignature.length}, got ${signature.length}`);
+        console.error(`Received signature: "${signature}"`); // DEBUG: Inspect format
         return false;
     }
 
